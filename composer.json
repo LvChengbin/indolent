@@ -1,0 +1,32 @@
+{
+    "name": "nextseason/model",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "LvChengbin",
+            "email": "myqmlu@gmail.com"
+        }
+    ],
+    "require": {},
+    "require-dev" : {
+        "phpunit/phpunit" : "^7",
+        "spatie/phpunit-watcher": "^1.5"
+    },
+    "autoload" : {
+        "psr-4" : {
+            "NextSeason\\Model\\SQL\\" : "src/" 
+        }
+    },
+    "autoload-dev" : {
+        "psr-4" : {
+            "NextSeason\\Test\\Model\\" : "tests/"
+        }
+    },
+    "scripts" : {
+        "test-watch" : "./vendor/bin/phpunit-watcher watch tests",
+        "test-quoter" : "./vendor/bin/phpunit-watcher watch tests/QuoterTest.php",
+        "test" : "./vendor/bin/phpunit --bootstrap vendor/autoload.php tests"
+    },
+    "process-timeout" : 0
+}
