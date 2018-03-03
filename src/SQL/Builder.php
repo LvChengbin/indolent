@@ -322,40 +322,4 @@ class Builder {
     public function end() : self {
         return $this;
     }
-
-    public function eq() : self {
-        return $this;
-    }
-
-    public function gt() : self {
-        return $this;
-    }
-
-    public function gte() : self {
-        return $this;
-    }
-
-    public function lt() : self {
-        return $this;
-    }
-
-    public function let() : self {
-        return $this;
-    }
-
-    public function ne() : self {
-        return $this;
-    }
-
-    public function in() : self {
-        return $this;
-    }
-
-    public function any() : self {
-        return $this;
-    }
-
-    public function some() : self {
-        return $this;
-    }
 }

@@ -41,6 +41,8 @@ final class AssemblerTest extends TestCase {
 
         $this->assertEquals( $assembler->columns( [ '*' ] ), '*' );
 
+        $this->assertEquals( $assembler->columns( [] ), '*' );
+
         $this->assertEquals( 
             $assembler->columns( [ 'a', 'b', 'c' ] ), 
             '`a`, `b`, `c`'
@@ -74,6 +76,11 @@ final class AssemblerTest extends TestCase {
         $this->assertEquals(
             $assembler->columns( [ 'count( id ) AS total', 'id' ] ),
             'count( `id` ) AS `total`, `id`'
+        );
+
+        $this->assertEquals(
+            $assembler->columns( [ 'count(id) AS total', 'id' ] ),
+            'count(`id`) AS `total`, `id`'
         );
 
         $this->assertEquals(
@@ -251,6 +258,66 @@ final class AssemblerTest extends TestCase {
                 [ 'age', 'DESC' ]
             ] ),
             '`id` ASC, `age` DESC'
+        );
+    }
+
+    public function testAssembleSet() : void {
+        $assembler = new Assembler( new Quoter() );
+
+        $this->assertEquals(
+            $assembler->set( [ 
+                'id' => 1,
+                'name' => 'x'
+            ] ),
+            '`id` = 1, `name` = \'x\''
+        );
+
+        $this->assertEquals(
+            $assembler->set( [ 
+                'id' => 1,
+                'name' => 'x'
+            ] ),
+            '`id` = 1, `name` = \'x\''
+        );
+
+        $this->assertEquals(
+            $assembler->set( [ 
+                'id' => [ 'id + 1' ],
+                'name' => 'x'
+            ] ),
+            '`id` = `id` + 1, `name` = \'x\''
+        );
+
+        $this->assertEquals(
+            $assembler->set( [ 
+                'id' => [ 'id + 1' ],
+                'name' => [ 'CONCAT( name, \'x\' )' ]
+            ] ),
+            '`id` = `id` + 1, `name` = CONCAT( `name`, \'x\' )'
+        );
+
+        $this->assertEquals(
+            $assembler->set( [ 
+                't1.name' => [ 't2.name' ]
+            ] ),
+            '`t1`.`name` = `t2`.`name`'
+        );
+    }
+
+    public function testAssembleGroupBy() : void {
+        $assembler = new Assembler( new Quoter() );
+
+        $this->assertEquals(
+            $assembler->groupBy( [ 'id', 'name' ] ),
+            '`id`, `name`'
+        );
+
+        $this->assertEquals(
+            $assembler->groupBy( [ 
+                [ 'id', 'ASC' ],
+                [ 'name', 'DESC WITH ROLLUP' ]
+            ] ),
+            '`id` ASC, `name` DESC WITH ROLLUP'
         );
     }
 

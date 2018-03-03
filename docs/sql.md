@@ -246,3 +246,5 @@ SELECT * FROM t1 LEFT JOIN t2 ON t1.id = t2.id LEFT JOIN t3 ON t2.id = t3.id
 SELECT 'x' IN ( 'x', 'y', 'z' );
 
 SELECT ( 3, 4 ) IN ( ( 1, 2 ), ( 3, 4 ) );
+
+SELECT * FROM (SELECT year, SUM(profit) FROM sales GROUP BY year WITH ROLLUP) AS dt ORDER BY year;

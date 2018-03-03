@@ -10,6 +10,11 @@ class Assembler {
         $this->quoter = $quoter;
     }
 
+    /**
+     * To assemble SQL for IN syntax
+     *
+     * @param array $in
+     */
     public function in( array $in ) : string {
 
         $in = array_unique( $in, SORT_REGULAR );
@@ -17,6 +22,10 @@ class Assembler {
         $res = [];
 
         foreach( $in as $value ) {
+            /**
+             * suportting nested IN syntax
+             * eg. ( ( 1, 2 ), ( 3, 4 ) )
+             */
             if( is_array( $value ) ) {
                 array_push( $res, $this->in( $value ) );
             } else {
@@ -118,11 +127,33 @@ class Assembler {
         return trim( $query );
     }
 
+    /**
+     * To generate SQL part for PARTITION syntax.
+     *
+     * @param array $partitions An array filled with partitions.
+     */
     public function partitions( array $partitions ) : string {
         return '( ' . $this->quoter->name( implode( ', ', $partitions ), false ) . ' )';
     }
 
+    /**
+     * GROUP BY column
+     * GROUP BY column ASC|DESC
+     * GROUP BY column WITH ROLLUP
+     * GROUP BY column ASC|DESC WITH ROLLUP
+     */
     public function groupBy( array $groups ) : string {
+        $quoter = $this->quoter;
+        $query = '';
+
+        foreach( $groups as $value ) {
+            if( is_array( $value ) ) {
+                $query .= ', '. $quoter->name( $value[ 0 ] ) . ' ' . $value[ 1 ];
+            } else {
+                $query .= ', '. $quoter->name( $value );
+            }
+        }
+        return trim( $query, ' ,' );
     }
 
     /**
@@ -133,7 +164,6 @@ class Assembler {
      */
     public function orderBy( array $order ) : string {
         $query = '';
-
         foreach( $order as $value ) {
             if( is_null( $value ) ) {
                 $query .= ', NULL';
@@ -143,7 +173,6 @@ class Assembler {
                 $query .= ', ' . $this->quoter->name( $value );
             }
         }
-
         return trim( $query, ' ,' );
     }
 
@@ -161,10 +190,24 @@ class Assembler {
     public function rightJoin( $join ) : string {
     }
 
-    public function set( $set ) : string {
-    }
+    /**
+     * [ 'col' => 'value' ]
+     * [ 'col1' => 'col2' ]
+     * [ 'col' => 'col + 1' ]
+     * [ 'col' => 'FUNC(col)' ]
+     * [ 'col' => 'CONCAT( col, "x" )' ]
+     */
+    public function set( array $set ) : string {
+        $quoter = $this->quoter;
+        $query = '';
 
-    public function union() : string {
+        foreach( $set as $key => $value ) {
+            if( is_array( $value ) ) {
+                $query .= ', ' . $quoter->name( $key, false ) . ' = ' . $quoter->name( $value[ 0 ], false );
+            } else {
+                $query .= ', ' . $quoter->name( $key, false ) . ' = ' . $quoter->value( $value );
+            }
+        }
+        return trim( $query, ' ,' );
     }
-
 }
