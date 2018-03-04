@@ -92,7 +92,11 @@ class Assembler {
                 if( $l === 1 ) {
                     $query .= ' ' . $quoter->name( $value[ 0 ], false );
                 } else if( $l === 2 ) {
-                    $query .= " {$quoter->name( $value[ 0 ] )} = {$this->quoter->value( $value[ 1 ] )}";
+                    if( is_null( $value[ 1 ] ) ) {
+                        $query .= " {$quoter->name( $value[ 0 ] )} IS NULL";
+                    } else {
+                        $query .= " {$quoter->name( $value[ 0 ] )} = {$this->quoter->value( $value[ 1 ] )}";
+                    }
                 } else {
                     $query .= " {$quoter->name( $value[ 0 ] )} {$value[ 1 ]} ";
                     switch( strtolower( $value[ 1 ] ) ) {
@@ -109,6 +113,9 @@ class Assembler {
                         case 'in' :
                         case 'not in' :
                             $query .= $this->in( $value[ 2 ] );
+                            break;
+                        case 'is' :
+                            $query .= 'NULL';
                             break;
                         default : 
                             $query .= $value[ 2 ];
@@ -141,6 +148,8 @@ class Assembler {
      * GROUP BY column ASC|DESC
      * GROUP BY column WITH ROLLUP
      * GROUP BY column ASC|DESC WITH ROLLUP
+     * USE INDEX( index list... ) FOR GROUP BY
+     * IGNORE INDEX FOR GROUP BY
      */
     public function groupBy( array $groups ) : string {
         $quoter = $this->quoter;
@@ -180,7 +189,26 @@ class Assembler {
         return implode( ', ', $limit );
     }
 
-    public function join( $join ) : string {
+    /**
+     * JOIN ( t1, t2, t3 )
+     * JOIN t1 JOIN t2 JOIN t3
+     * JOIN ( t1 JOIN t2 JOIN t3 )
+     * JOIN tbl_name AS t1
+     * FROM t1 JOIN t2 ON t1.id = t2.id
+     */
+    public function join( array $join ) : string {
+        $query = '';
+        foreach( $join as $value ) {
+            $query .= '';
+        }
+
+        return trim( $query, ' ,' );
+    }
+
+    public function innerJoin( $join ) : string {
+    }
+
+    public function crossJoin( $join ) : string {
     }
 
     public function leftJoin( $join ) : string {
@@ -209,5 +237,16 @@ class Assembler {
             }
         }
         return trim( $query, ' ,' );
+    }
+
+    /**
+     * to generate clause for index hint for where syntax
+     *
+     * USE INDEX ( index1, index2 )
+     * IGNORE INDEX ( index1, index2 )
+     * FORCE INDEX ( index1, index2 )
+     *
+     */
+    public function index( array $indexes ) : string {
     }
 }

@@ -109,6 +109,16 @@ final class AssemblerTest extends TestCase {
         $assembler = new Assembler( new Quoter() );
 
         $this->assertEquals(
+            $assembler->conditions( [ [ 'id', NULL ] ] ),
+            '`id` IS NULL'
+        );
+
+        $this->assertEquals(
+            $assembler->conditions( [ [ 'id', 'IS', NULL ] ] ),
+            '`id` IS NULL'
+        );
+
+        $this->assertEquals(
             $assembler->conditions( [
                 [ 'id = 1' ]
             ] ),
@@ -314,11 +324,21 @@ final class AssemblerTest extends TestCase {
 
         $this->assertEquals(
             $assembler->groupBy( [ 
-                [ 'id', 'ASC' ],
+                [ 'id', 'ASC', 'INDEX' => [] ],
                 [ 'name', 'DESC WITH ROLLUP' ]
             ] ),
             '`id` ASC, `name` DESC WITH ROLLUP'
         );
     }
 
+    public function testAssembleJoin() : void {
+
+        $assembler = new Assembler( new Quoter() );
+
+        $this->assertEquals(
+            $assembler->groupBy( [ 'id', 'name' ] ),
+            '`id`, `name`'
+        );
+
+    }
 }
