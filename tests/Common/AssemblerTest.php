@@ -3,17 +3,21 @@
 namespace NextSeason\Test\Model\SQL;
 
 use PHPUnit\Framework\TestCase;
-use NextSeason\Model\SQL\Common\Assembler;
 use NextSeason\Model\SQL\MySQL\Quoter;
-use NextSeason\Model\SQL\Common\Group;
+use NextSeason\Model\SQL\Common\{ Assembler, Placeholder, Group, Expression };
 
 final class AssemblerTest extends TestCase {
     public function testAssembleIn() : void {
-        $assembler = new Assembler( new Quoter() );
+        $quoter = new Quoter();
+
+        $assembler = new Assembler( $quoter );
 
         $this->assertEquals(
             $assembler->in( [ 10, 20, 30 ] ),
-            "( 10, 20, 30 )"
+            [
+                'query' => '( ?, ?, ? )',
+                'params' => [ 10, 20, 30 ]
+            ]
         );
 
         $this->assertEquals(
@@ -21,7 +25,10 @@ final class AssemblerTest extends TestCase {
                 [ 10, 20 ],
                 [ 30, 40 ]
             ] ),
-            "( ( 10, 20 ), ( 30, 40 ) )"
+            [
+                'query' => '( ( ?, ? ), ( ?, ? ) )',
+                'params' => [ 10, 20, 30, 40 ]
+            ]
         );
 
         $this->assertEquals(
@@ -29,63 +36,128 @@ final class AssemblerTest extends TestCase {
                 [ [ 1, 2 ], [ 3, 4 ] ],
                 [ [ 5, 6 ], [ 7, 8 ] ]
             ] ),
-            "( ( ( 1, 2 ), ( 3, 4 ) ), ( ( 5, 6 ), ( 7, 8 ) ) )"
+            [
+                'query' => '( ( ( ?, ? ), ( ?, ? ) ), ( ( ?, ? ), ( ?, ? ) ) )',
+                'params' => [ 1, 2, 3, 4, 5, 6, 7, 8 ]
+            ]
         );
+
+        $this->assertEquals(
+            $assembler->in( [ new Expression( 'id', $quoter ), 40 ] ),
+            [
+                'query' => '( `id`, ? )',
+                'params' => [ 40 ]
+            ]
+        );
+
+        $this->assertEquals(
+            $assembler->in( [ new Expression( 'CONCAT( prefix + "str" )', $quoter ), 40 ] ),
+            [
+                'query' => '( CONCAT( `prefix` + ? ), ? )',
+                'params' => [ 'str', 40 ]
+            ]
+        );
+
     }
 
-    public function testAssembleColumns() : void {
+    public function itestAssembleColumns() : void {
 
         $assembler = new Assembler( new Quoter() );
 
-        $this->assertEquals( $assembler->columns(), '*' );
+        $this->assertEquals(
+            $assembler->columns(),
+            [
+                'query' => '*',
+                'params' => []
+            ]
+        );
 
-        $this->assertEquals( $assembler->columns( [ '*' ] ), '*' );
+        $this->assertEquals(
+            $assembler->columns( [ '*' ] ),
+            [
+                'query' => '*',
+                'params' => []
+            ]
+        );
 
-        $this->assertEquals( $assembler->columns( [] ), '*' );
+        $this->assertEquals(
+            $assembler->columns( [] ),
+            [
+                'query' => '*',
+                'params' => []
+            ]
+        );
 
         $this->assertEquals( 
             $assembler->columns( [ 'a', 'b', 'c' ] ), 
-            '`a`, `b`, `c`'
+            [
+                'query' => '`a`, `b`, `c`',
+                'param' => []
+            ]
         );
 
         $this->assertEquals(
             $assembler->columns( [ 'a as c1', 'b as c2', 'c' ] ),
-            '`a` as `c1`, `b` as `c2`, `c`'
+            [
+                'query' => '`a` as `c1`, `b` as `c2`, `c`',
+                'params' => []
+            ]
         );
 
         $this->assertEquals(
             $assembler->columns( [ 'a c1', 'b c2', 'c' ] ),
-            '`a` `c1`, `b` `c2`, `c`'
+            [
+                'query' => '`a` `c1`, `b` `c2`, `c`',
+                'params' => []
+            ]
         );
 
         $this->assertEquals(
             $assembler->columns( [ 't1.a as c1', 't1.b as c2', 'c' ] ),
-            '`t1`.`a` as `c1`, `t1`.`b` as `c2`, `c`'
+            [
+                'query' => '`t1`.`a` as `c1`, `t1`.`b` as `c2`, `c`',
+                'params' => []
+            ]
         );
 
         $this->assertEquals(
             $assembler->columns( [ 'count(*)', 'id' ] ),
-            'count(*), `id`'
+            [
+                'query' => 'count(*), `id`',
+                'params' => []
+            ]
         );
 
         $this->assertEquals(
             $assembler->columns( [ 'count(*) AS total', 'id' ] ),
-            'count(*) AS `total`, `id`'
+            [
+                'query' => 'count(*) AS `total`, `id`',
+                'params' => []
+            ]
         );
 
         $this->assertEquals(
             $assembler->columns( [ 'count( id ) AS total', 'id' ] ),
-            'count( `id` ) AS `total`, `id`'
+            [
+                'query' => 'count( `id` ) AS `total`, `id`',
+                'params' => []
+            ]
         );
 
         $this->assertEquals(
             $assembler->columns( [ 'count(id) AS total', 'id' ] ),
-            'count(`id`) AS `total`, `id`'
+            [
+                'query' => 'count(`id`) AS `total`, `id`',
+                'params' => []
+            ]
         );
 
         $this->assertEquals(
             $assembler->columns( [ 't1.id', 'title' ] ),
-            '`t1`.`id`, `title`'
+            [
+                'query' => '`t1`.`id`, `title`',
+                'params' => []
+            ]
         );
     }
 
@@ -106,92 +178,146 @@ final class AssemblerTest extends TestCase {
 
     public function testAssembleConditions() : void {
 
-        $assembler = new Assembler( new Quoter() );
+        $quoter = new Quoter();
+
+        $assembler = new Assembler( $quoter );
 
         $this->assertEquals(
             $assembler->conditions( [ [ 'id', NULL ] ] ),
-            '`id` IS NULL'
+            [
+                'query' => '`id` IS ?',
+                'params' => [ NULL ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->conditions( [ [ 'id', 'IS', NULL ] ] ),
-            '`id` IS NULL'
-        );
-
-        $this->assertEquals(
-            $assembler->conditions( [
-                [ 'id = 1' ]
-            ] ),
-            '`id` = 1'
-        );
-
-        $this->assertEquals(
-            $assembler->conditions( [
-                [ 'id', 1 ]
-            ] ),
-            '`id` = 1'
+            [
+                'query' => '`id` IS ?',
+                'params' => [ NULL ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->conditions( [
                 [ 'id', 1 ]
             ] ),
-            '`id` = 1'
+            [ 
+                'query' => '`id` = ?',
+                'params' => [ 1 ]
+            ]
+        );
+
+        $this->assertEquals(
+            $assembler->conditions( [
+                [ 'id', 1 ]
+            ] ),
+            [
+                'query' => '`id` = ?',
+                'params' => [ 1 ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->conditions( [
                 [ 'id', '<>', 1 ]
             ] ),
-            '`id` <> 1'
+            [
+                'query' => '`id` <> ?',
+                'params' => [ 1 ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->conditions( [
                 [ 'id', 1 ],
-                'AND',
+                Placeholder::AND,
                 [ 'age', '>', 10 ],
-                'AND',
-                'name like "%l"',
-                'AND',
+                Placeholder::AND,
+                [ 'name', 'like', '%l' ],
+                Placeholder::AND,
                 [ 'and', 'x' ]
             ] ),
-            '`id` = 1 AND `age` > 10 AND `name` like "%l" AND `and` = \'x\''
+            [
+                'query' => '`id` = ? AND `age` > ? AND `name` like ? AND `and` = ?',
+                'params' => [ 1, 10, '%l', 'x' ]
+            ]
+        );
+
+        $this->assertEquals(
+            $assembler->conditions( [
+                [ 't1.id', new Expression( 't2.id', $quoter ) ],
+                Placeholder::AND,
+                [ 't1.age', '>', new Expression( 't2.age', $quoter ) ],
+                Placeholder::AND,
+                [ 't1.ctime', '>', new Expression( 't2.id + t1.ctime', $quoter ) ],
+                Placeholder::AND,
+                [ 't2.ctime', 'LIKE', new Expression( 't2.id + "abc"', $quoter ) ]
+            ] ),
+            [
+                'query' => '`t1`.`id` = `t2`.`id` AND `t1`.`age` > `t2`.`age` AND `t1`.`ctime` > `t2`.`id` + `t1`.`ctime` AND `t2`.`ctime` LIKE `t2`.`id` + ?',
+                'params' => [ 'abc' ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->conditions( [
                 [ 'age', 'BETWEEN', [ 10, 20 ] ]
             ] ),
-            "`age` BETWEEN 10 AND 20"
+            [
+                'query' => '`age` BETWEEN ? AND ?',
+                'params' => [ 10, 20 ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->conditions( [
                 [ 'age', 'NOT BETWEEN', [ 10, 20 ] ]
             ] ),
-            "`age` NOT BETWEEN 10 AND 20"
+            [
+                'query' => '`age` NOT BETWEEN ? AND ?',
+                'params' => [ 10, 20 ]
+            ]
+        );
+
+        $this->assertEquals(
+            $assembler->conditions( [
+                [ 'age', 'NOT BETWEEN', [ 'a', 'z' ] ]
+            ] ),
+            [
+                'query' => '`age` NOT BETWEEN ? AND ?',
+                'params' => [ 'a', 'z' ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->conditions( [
                 [ 'age', 'IN', [ 10, 20 ] ]
             ] ),
-            "`age` IN ( 10, 20 )"
+            [
+                'query' => "`age` IN ( ?, ? )",
+                'params' => [ 10, 20 ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->conditions( [
                 [ 'age', 'NOT IN', [ 10, 20 ] ]
             ] ),
-            "`age` NOT IN ( 10, 20 )"
+            [
+                'query' => "`age` NOT IN ( ?, ? )",
+                'params' => [ 10, 20 ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->conditions( [
                 [ 'age', 'NOT IN', [ 'a', 'b' ] ]
             ] ),
-            "`age` NOT IN ( 'a', 'b' )"
+            [
+                'query' => "`age` NOT IN ( ?, ? )",
+                'params' => [ 'a', 'b' ]
+            ]
         );
     }
 
@@ -205,7 +331,10 @@ final class AssemblerTest extends TestCase {
 
         $this->assertEquals( 
             $assembler->conditions( [ $g1 ] ),
-            "( `id` = 1 OR `id` = 2 )"
+            [ 
+                'query' => '( `id` = ? OR `id` = ? )',
+                'params' => [ 1, 2 ]
+            ]
         );
 
         $g2 = new Group();
@@ -213,8 +342,11 @@ final class AssemblerTest extends TestCase {
         $g2->or( 'id', 4 );
 
         $this->assertEquals( 
-            $assembler->conditions( [ $g1, 'AND', $g2 ] ),
-            "( `id` = 1 OR `id` = 2 ) AND ( `id` = 3 OR `id` = 4 )"
+            $assembler->conditions( [ $g1, Placeholder::AND, $g2 ] ),
+            [
+                'query' => '( `id` = ? OR `id` = ? ) AND ( `id` = ? OR `id` = ? )',
+                'params' => [ 1, 2, 3, 4 ]
+            ]
         );
 
         $g3 = new Group();
@@ -224,8 +356,11 @@ final class AssemblerTest extends TestCase {
         $g2->and( $g3 );
 
         $this->assertEquals( 
-            $assembler->conditions( [ $g1, 'AND', $g2 ] ),
-            "( `id` = 1 OR `id` = 2 ) AND ( `id` = 3 OR `id` = 4 AND ( `age` > 10 OR `age` < 5 ) )"
+            $assembler->conditions( [ $g1, Placeholder::AND, $g2 ] ),
+            [
+                'query' => '( `id` = ? OR `id` = ? ) AND ( `id` = ? OR `id` = ? AND ( `age` > ? OR `age` < ? ) )',
+                'params' => [ 1, 2, 3, 4, 10, 5 ]
+            ]
         );
     }
 
@@ -247,8 +382,20 @@ final class AssemblerTest extends TestCase {
     public function testAssembleLimit() : void {
         $assembler = new Assembler( new Quoter() );
 
-        $this->assertEquals( $assembler->limit( [ 5 ] ), '5' );
-        $this->assertEquals( $assembler->limit( [ 5, 10 ] ), '5, 10' );
+        $this->assertEquals(
+            $assembler->limit( [ 5 ] ),
+            [
+                'query' => '?',
+                'params' => [ 5 ]
+            ]
+        );
+        $this->assertEquals(
+            $assembler->limit( [ 5, 10 ] ),
+            [
+                'query' => '?, ?',
+                'params' => [ 5, 10 ]
+            ]
+        );
     }
 
     public function testAssembleOrderBy() : void {
@@ -272,45 +419,51 @@ final class AssemblerTest extends TestCase {
     }
 
     public function testAssembleSet() : void {
-        $assembler = new Assembler( new Quoter() );
+        $quoter = new Quoter();
+
+        $assembler = new Assembler( $quoter );
 
         $this->assertEquals(
             $assembler->set( [ 
                 'id' => 1,
                 'name' => 'x'
             ] ),
-            '`id` = 1, `name` = \'x\''
+            [
+                'query' => '`id` = ?, `name` = ?',
+                'params' => [ 1, 'x' ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->set( [ 
-                'id' => 1,
+                'id' => new Expression( 'id + 1', $quoter ),
                 'name' => 'x'
             ] ),
-            '`id` = 1, `name` = \'x\''
+            [
+                'query' => '`id` = `id` + ?, `name` = ?',
+                'params' => [ 1, 'x' ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->set( [ 
-                'id' => [ 'id + 1' ],
-                'name' => 'x'
+                'id' => new Expression( 'id + 1', $quoter ),
+                'name' => new Expression( 'CONCAT( name, \'x\' )', $quoter )
             ] ),
-            '`id` = `id` + 1, `name` = \'x\''
+            [
+                'query' => '`id` = `id` + ?, `name` = CONCAT( `name`, ? )',
+                'params' => [ 1, 'x' ]
+            ]
         );
 
         $this->assertEquals(
             $assembler->set( [ 
-                'id' => [ 'id + 1' ],
-                'name' => [ 'CONCAT( name, \'x\' )' ]
+                't1.name' => new Expression( 't2.name', $quoter )
             ] ),
-            '`id` = `id` + 1, `name` = CONCAT( `name`, \'x\' )'
-        );
-
-        $this->assertEquals(
-            $assembler->set( [ 
-                't1.name' => [ 't2.name' ]
-            ] ),
-            '`t1`.`name` = `t2`.`name`'
+            [
+                'query' => '`t1`.`name` = `t2`.`name`',
+                'params' => []
+            ]
         );
     }
 
@@ -333,12 +486,104 @@ final class AssemblerTest extends TestCase {
 
     public function testAssembleJoin() : void {
 
-        $assembler = new Assembler( new Quoter() );
+        $quoter = new Quoter();
+
+        $assembler = new Assembler( $quoter );
 
         $this->assertEquals(
-            $assembler->groupBy( [ 'id', 'name' ] ),
-            '`id`, `name`'
+            $assembler->join( [ 
+                't1',
+                [ Placeholder::JOIN, 't2' ],
+                [ Placeholder::INNER_JOIN, 't3' ],
+                [ Placeholder::CROSS_JOIN, 't4' ]
+            ] ),
+            [
+                'query' => '`t1` JOIN `t2` INNER JOIN `t3` CROSS JOIN `t4`',
+                'params' => []
+            ]
         );
 
+        $this->assertEquals(
+            $assembler->join( [ 
+                't1',
+                [ Placeholder::JOIN, [
+                    't2',
+                    [ Placeholder::JOIN, 't3' ]
+                ] ],
+                [ Placeholder::JOIN, 't4' ]
+            ] ),
+            [
+                'query' => '`t1` JOIN ( `t2` JOIN `t3` ) JOIN `t4`',
+                'params' => []
+            ]
+        );
+
+        $this->assertEquals(
+            $assembler->join( [ 
+                't1',
+                [ Placeholder::JOIN, [
+                    't2',
+                    [ Placeholder::JOIN, 't3' ],
+                    [ Placeholder::ON, [ [ 't1.id', new Expression( 't2.id', $quoter ) ] ] ]
+                ] ],
+                [ Placeholder::ON, [ 
+                    [ 't1.id', new Expression( 't2.id', $quoter ) ],
+                    Placeholder::AND,
+                    [ 't1.sex', new Expression( 't2.sex', $quoter ) ]
+                ] ]
+            ] ),
+            [
+                'query' => '`t1` JOIN ( `t2` JOIN `t3` ON `t1`.`id` = `t2`.`id` ) ON `t1`.`id` = `t2`.`id` AND `t1`.`sex` = `t2`.`sex`',
+                'params' => []
+            ]
+        );
+
+        $this->assertEquals(
+            $assembler->join( [ 
+                't1',
+                [ Placeholder::JOIN, [
+                    't2',
+                    [ Placeholder::JOIN, 't3' ]
+                ] ],
+                [ Placeholder::JOIN, 't4' ],
+                [ Placeholder::USING, 'c1' ]
+            ] ),
+            [
+                'query' => '`t1` JOIN ( `t2` JOIN `t3` ) JOIN `t4` USING ( `c1` )',
+                'params' => []
+            ]
+        );
+
+        $this->assertEquals(
+            $assembler->join( [ 
+                't1',
+                [ Placeholder::JOIN, [
+                    't2',
+                    [ Placeholder::JOIN, 't3' ]
+                ] ],
+                [ Placeholder::JOIN, 't4' ],
+                [ Placeholder::USING, [ 'c1', 'c2', 'c3' ] ]
+            ] ),
+            [
+                'query' => '`t1` JOIN ( `t2` JOIN `t3` ) JOIN `t4` USING ( `c1`, `c2`, `c3` )',
+                'params' => []
+            ]
+        );
+
+        $this->assertEquals(
+            $assembler->join( [ 
+                'tbl_name AS t1',
+                [ Placeholder::JOIN, [
+                    't2',
+                    [ Placeholder::JOIN, 't3' ]
+                ] ],
+                [ Placeholder::JOIN, 't4' ],
+                [ Placeholder::USING, [ 'c1', 'c2', 'c3' ] ]
+            ] ),
+            [
+                'query' => '`tbl_name` AS `t1` JOIN ( `t2` JOIN `t3` ) JOIN `t4` USING ( `c1`, `c2`, `c3` )',
+                'params' => []
+            ]
+        );
     }
 }

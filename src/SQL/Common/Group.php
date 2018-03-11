@@ -45,11 +45,11 @@ class Group {
     }
 
     public function and( $name, $operator = null, $value = null ) {
-        return $this->condition( 'AND', $name, $operator, $value );
+        return $this->condition( Placeholder::AND, $name, $operator, $value );
     }
 
     public function or( $name, $operator = null, $value = null ) {
-        return $this->condition( 'OR', $name, $operator, $value );
+        return $this->condition( Placeholder::OR, $name, $operator, $value );
     }
 
     public function conditions() {
@@ -59,7 +59,7 @@ class Group {
             return [];
         }
 
-        if( $conditions[ 0 ] === 'AND' || $conditions[ 0 ] == 'OR' ) {
+        if( $conditions[ 0 ] === Placeholder::AND || $conditions[ 0 ] == Placeholder::OR ) {
             array_shift( $conditions );
         }
         return $conditions;

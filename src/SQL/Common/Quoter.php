@@ -56,18 +56,18 @@ class Quoter {
             if( in_array( strtoupper( $item ), $this->reserved ) || $this->isPlaceholder( $item ) ) {
                 return $item;
             }
-            return '`' . $item . '`';
+            return $this->prefix . $item . $this->suffix;
         }, $str );
 
         $regex = '#\\b(' . implode( '|', $this->reserved ) . ')\s*=#i';
 
-        $str = preg_replace( $regex, '`\\1` =', $str );
+        $str = preg_replace( $regex, $this->prefix . '\\1' . $this->suffix . ' =', $str );
 
         return str_replace( $placeholders, $temp, $str );
     }
 
     public function value( $str ) : string {
-        if(  is_string( $str ) ) {
+        if( is_string( $str ) ) {
             return '\'' .addslashes( $str ) . '\'';
         }
         return $str;

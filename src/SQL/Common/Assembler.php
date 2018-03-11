@@ -1,7 +1,6 @@
 <?php
 
 namespace NextSeason\Model\SQL\Common;
-use NextSeason\Model\SQL\Common\Group;
 
 class Assembler {
     private $quoter = null;
@@ -15,11 +14,10 @@ class Assembler {
      *
      * @param array $in
      */
-    public function in( array $in ) : string {
+    public function in( array $in ) : array {
 
-        $in = array_unique( $in, SORT_REGULAR );
-
-        $res = [];
+        $query = [];
+        $params = [];
 
         foreach( $in as $value ) {
             /**
@@ -27,111 +25,118 @@ class Assembler {
              * eg. ( ( 1, 2 ), ( 3, 4 ) )
              */
             if( is_array( $value ) ) {
-                array_push( $res, $this->in( $value ) );
+                $res = $this->in( $value );
+                $query[] = $res[ 'query' ];
+                $params = array_merge( $params, $res[ 'params' ] );
+            } else if( $value instanceof Expression ) {
+                $params = array_merge( $params, $value->params );
+                $query[] = $value;
             } else {
-                array_push( $res, $this->quoter->value( $value ) );
+                $query[] = '?';
+                $params[] = $value;
             }
         }
 
-        return '( ' . implode( ', ', $res ) . ' )';
+        return [
+            'query' => '( ' . implode( ', ', $query ) . ' )',
+            'params' => $params
+        ];
     }
 
-    public function columns( array $columns = null ) : string {
+    public function columns( array $columns = null ) : array {
         if( empty( $columns ) ) {
-            return '*';
+            return [
+                'query' => '*',
+                'params' => []
+            ];
         }
 
         for( $i = 0, $l = count( $columns ); $i < $l; ++$i ) {
-            $item = $columns[ $i ];
-
-            if( $this->quoter->quoted( $item ) ) {
-                continue;
-            }
-            $columns[ $i ] = $this->quoter->name( $item, false );
+            $columns[ $i ] = $this->quoter->name( $columns[ i ], false );
         }
 
-        return implode( $columns, ', ' );
+        return [
+            'query' => implode( $columns, ', ' ),
+            'params' => []
+        ];
     }
 
     public function tables( array $tables ) : string {
 
-        /**
-         * array_unique method will not rearrange the array index.
-         * so to create a new array with array_values;
-         */
-        $tables = array_values( array_unique( $tables ) );
-
         for( $i = 0, $l = count( $tables ); $i < $l; ++$i ) {
-            $item = $tables[ $i ];
-
-            if( $this->quoter->quoted( $item, false ) ) {
-                continue;
-            }
-
             /**
              * tbl_name -> `tbl_name`
              * tbl_name AS t1 -> `tbl_name` AS t1
              */
-            $tables[ $i ] = $this->quoter->name( $item, false ); 
+            $tables[ $i ] = $this->quoter->name( $tables[ $i ], false ); 
         }
 
         return implode( $tables, ', ' );
     }
 
-    public function conditions( $conditions ) : string {
+    public function conditions( $conditions ) : array {
         $quoter = $this->quoter;
 
         $query = '';
+        $params = [];
 
         foreach( $conditions as $value ) {
             if( $value instanceof Group ) {
-                $query .= ' ( ' . $this->conditions( $value->conditions() ) . ' )';
+                $res = $this->conditions( $value->conditions() );
+                $query .= ' ( ' . $res[ 'query' ] . ' )';
+                $params = array_merge( $params, $res[ 'params' ] );
             } else if( is_array( $value ) ) {
-                $l = count( $value );
-
-                if( $l === 1 ) {
-                    $query .= ' ' . $quoter->name( $value[ 0 ], false );
-                } else if( $l === 2 ) {
+                if( count( $value ) === 2 ) {
                     if( is_null( $value[ 1 ] ) ) {
-                        $query .= " {$quoter->name( $value[ 0 ] )} IS NULL";
+                        $value[ 2 ] = $value[ 1 ];
+                        $value[ 1 ] = 'IS';
                     } else {
-                        $query .= " {$quoter->name( $value[ 0 ] )} = {$this->quoter->value( $value[ 1 ] )}";
-                    }
-                } else {
-                    $query .= " {$quoter->name( $value[ 0 ] )} {$value[ 1 ]} ";
-                    switch( strtolower( $value[ 1 ] ) ) {
-                        case 'between' :
-                        case 'not between' :
-                            $scope = $value[ 2 ];
-
-                            if( is_array( $scope ) ) {
-                                $query .= $scope[ 0 ] . ' AND ' . $scope[ 1 ];
-                            } else {
-                                $query .= $scope;
-                            }
-                            break;
-                        case 'in' :
-                        case 'not in' :
-                            $query .= $this->in( $value[ 2 ] );
-                            break;
-                        case 'is' :
-                            $query .= 'NULL';
-                            break;
-                        default : 
-                            $query .= $value[ 2 ];
-                            break;
+                        $value[ 2 ] = $value[ 1 ];
+                        $value[ 1 ] = '=';
                     }
                 }
+                $query .= " {$quoter->name( $value[ 0 ], false )} {$value[ 1 ]} ";
+
+                switch( strtolower( $value[ 1 ] ) ) {
+                    case 'between' :
+                    case 'not between' :
+                        $params = array_merge( $params, $value[ 2 ] );
+                        $query .= '? AND ? ';
+                        break;
+                    case 'exists' :
+                    case 'not exists' :
+                        break;
+                    case 'in' :
+                    case 'not in' :
+                        $res = $this->in( $value[ 2 ] );
+                        $query .= $res[ 'query' ];
+                        $params = array_merge( $params, $res[ 'params' ] );
+                        break;
+                    default : 
+                        if( $value[ 2 ] instanceof Expression ) {
+                            $params = array_merge( $params, $value[ 2 ]->params );
+                            $query .= $value[ 2 ];
+                        } else {
+                            $query .= '?';
+                            $params[] = $value[ 2 ];
+                        }
+                        break;
+                }
             } else {
-                if( $value === 'AND' || $value === 'OR' ) {
-                    $query .= ' ' . $value;
+                if( $value === Placeholder::AND ) {
+                    $query .= ' AND';
+                } else if( $value === Placeholder::OR ) {
+                    $query .= ' OR';
                 } else {
                     $query .= ' ' . $quoter->name( $value, false );
                 }
             }
         }
 
-        return trim( $query );
+        return [
+            'query' => trim( $query ),
+            'params' => $params
+        ];
     }
 
     /**
@@ -185,8 +190,18 @@ class Assembler {
         return trim( $query, ' ,' );
     }
 
-    public function limit( array $limit ) : string {
-        return implode( ', ', $limit );
+    public function limit( array $limit ) : array {
+        if( count( $limit ) === 1 ) {
+            return [
+                'query' => '?',
+                'params' => $limit
+            ];
+        }
+
+        return [
+            'query' => '?, ?',
+            'params' => $limit
+        ];
     }
 
     /**
@@ -195,27 +210,97 @@ class Assembler {
      * JOIN ( t1 JOIN t2 JOIN t3 )
      * JOIN tbl_name AS t1
      * FROM t1 JOIN t2 ON t1.id = t2.id
+     *
+     * [ 
+     *      t1, 
+     *      Placeholder::JOIN => [ 
+     *          t2,
+     *          Placeholder::JOIN => t3
+     *      ], 
+     *      ON => [],
+     *      Placeholder::JOIN => t4
+     *  ]
      */
-    public function join( array $join ) : string {
+    public function join( array $join ) : array {
+        $quoter = $this->quoter;
         $query = '';
+        $params = [];
+
         foreach( $join as $value ) {
-            $query .= '';
+            if( !is_array( $value ) ) {
+                switch( (string)$value ) {
+                    case Placeholder::ON :
+                        $query .= ' ON';
+                        break;
+                    case Placeholder::USING :
+                        $query .= ' USING';
+                        break;
+                    default :
+                        $query .= ' ' . $quoter->name( $value, false );
+                        break;
+                }
+            } else {
+
+                switch( (string)$value[ 0 ] ) {
+                    case Placeholder::JOIN :
+                        $query .= ' JOIN';
+                        break;
+                    case Placeholder::CROSS_JOIN :
+                        $query .= ' CROSS JOIN';
+                        break;
+                    case Placeholder::INNER_JOIN :
+                        $query .= ' INNER JOIN';
+                        break;
+                    case Placeholder::OUTER_JOIN :
+                        $query .= ' OUTER JOIN';
+                        break;
+                    case Placeholder::LEFT_JOIN :
+                        $query .= ' LEFT JOIN';
+                        break;
+                    case Placeholder::RIGHT_JOIN :
+                        $query .= ' RIGHT JOIN';
+                        break;
+                    case Placeholder::STRAIGHT_JOIN :
+                        $query .= ' STRAIGHT JOIN';
+                        break;
+                    case Placeholder::ON :
+                        $query .= ' ON';
+                        break;
+                    case Placeholder::USING :
+                        $query .= ' USING';
+                        break;
+                } 
+
+                if( $value[ 0 ] === Placeholder::ON ) {
+                    $res = $this->conditions( $value[ 1 ] );
+                    $query .= ' ' . $res[ 'query' ];
+                    $params = array_merge( $params, $res[ 'params' ] );
+                } else if( $value[ 0 ] === Placeholder::USING ) {
+                    $query .= ' ( ';
+                    if( is_array( $value[ 1 ] ) ) {
+                        $query .= $quoter->name( implode( ', ', $value[ 1 ] ), false );
+                    } else {
+                        $query .= $quoter->name( $value[ 1 ], false );
+                    }
+                    $query .= ' ) ';
+                } else {
+
+                    if( is_array( $value[ 1 ] ) ) {
+                        $res = $this->join( $value[ 1 ] );
+                        $query .= ' ( ' . $res[ 'query' ] . ' )';
+                        $params = array_merge( $params, $res[ 'params' ] );
+                    } else {
+                        $query .= ' ' . $quoter->name( $value[ 1 ], false );
+                    }
+                }
+            }
         }
 
-        return trim( $query, ' ,' );
-    }
+        return [
+            'query' => trim( $query, ' ,' ),
+            'params' => $params
+        ];
 
-    public function innerJoin( $join ) : string {
-    }
-
-    public function crossJoin( $join ) : string {
-    }
-
-    public function leftJoin( $join ) : string {
-
-    }
-
-    public function rightJoin( $join ) : string {
     }
 
     /**
@@ -225,18 +310,26 @@ class Assembler {
      * [ 'col' => 'FUNC(col)' ]
      * [ 'col' => 'CONCAT( col, "x" )' ]
      */
-    public function set( array $set ) : string {
+    public function set( array $set ) : array {
         $quoter = $this->quoter;
         $query = '';
+        $params = [];
 
         foreach( $set as $key => $value ) {
-            if( is_array( $value ) ) {
-                $query .= ', ' . $quoter->name( $key, false ) . ' = ' . $quoter->name( $value[ 0 ], false );
+            $query .= ', ' . $quoter->name( $key, false ) . ' = ';
+            if( $value instanceof Expression ) {
+                $params = array_merge( $params, $value->params );
+                $query .= $value;
             } else {
-                $query .= ', ' . $quoter->name( $key, false ) . ' = ' . $quoter->value( $value );
+                $params[] = $value;
+                $query .= '?';
             }
+
         }
-        return trim( $query, ' ,' );
+        return [
+            'query' => trim( $query, ' ,' ),
+            'params' => $params
+        ];
     }
 
     /**

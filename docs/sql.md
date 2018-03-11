@@ -248,3 +248,8 @@ SELECT 'x' IN ( 'x', 'y', 'z' );
 SELECT ( 3, 4 ) IN ( ( 1, 2 ), ( 3, 4 ) );
 
 SELECT * FROM (SELECT year, SUM(profit) FROM sales GROUP BY year WITH ROLLUP) AS dt ORDER BY year;
+
+# TODO
+
+ - for update
+ - in share mode

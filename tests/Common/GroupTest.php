@@ -3,7 +3,7 @@
 namespace NextSeason\Test\Model\SQL;
 
 use PHPUnit\Framework\TestCase;
-use NextSeason\Model\SQL\Common\Group;
+use NextSeason\Model\SQL\Common\{ Placeholder, Group };
 
 final class GroupTest extends TestCase {
 
@@ -17,19 +17,19 @@ final class GroupTest extends TestCase {
             ( new Group() )->and( 'id', 1 )->and( 'age', '>', 10 )->conditions(),
             [
                 [ 'id', 1 ],
-                'AND',
+                Placeholder::AND,
                 [ 'age', '>', 10 ]
             ]
         );
 
         $this->assertEquals(
             ( new Group() )->and( 'id = 1' )->and( 'age > 10' )->conditions(),
-            [ 'id = 1', 'AND', 'age > 10' ]
+            [ 'id = 1', Placeholder::AND, 'age > 10' ]
         );
 
         $this->assertEquals(
             ( new Group() )->and( '`id` = 1' )->and( '`age` > 10' )->conditions(),
-            [ '`id` = 1', 'AND', '`age` > 10' ]
+            [ '`id` = 1', Placeholder::AND, '`age` > 10' ]
         );
 
         $this->assertEquals(
@@ -39,14 +39,14 @@ final class GroupTest extends TestCase {
 
         $this->assertEquals(
             ( new Group() )->and( [ [ 'id', 1 ], [ 'age', '>', 10 ], [ 'name = "x"' ] ] )->conditions(),
-            [ [ 'id', 1 ], 'AND', [ 'age', '>', 10 ], 'AND', [ 'name = "x"' ] ]
+            [ [ 'id', 1 ], Placeholder::AND, [ 'age', '>', 10 ], Placeholder::AND, [ 'name = "x"' ] ]
         );
 
         $g1 = new Group();
 
         $this->assertEquals(
             ( new Group() )->and( [ [ 'id', 1 ] ] )->and( $g1 )->conditions(),
-            [ [ 'id', 1 ], 'AND', $g1 ]
+            [ [ 'id', 1 ], Placeholder::AND, $g1 ]
         );
 
     }
