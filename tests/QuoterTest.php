@@ -1,25 +1,14 @@
 <?php
 
-namespace NextSeason\Test\Model\SQL\Common;
+namespace NextSeason\Test\Model\SQL;
 
 use PHPUnit\Framework\TestCase;
-use NextSeason\Model\SQL;
+use NextSeason\Model\SQL\Quoter;
 
 final class QuoterTest extends TestCase {
     public function testQuoted() : void {
-        $quoter = new SQL\Common\Quoter();
 
-        $this->assertTrue( $quoter->quoted( '""' ) );
-        $this->assertTrue( $quoter->quoted( '"abc"' ) );
-        $this->assertTrue( $quoter->quoted( ' "abc" ' ) );
-        $this->assertTrue( $quoter->quoted( '"abc" "c1"' ) );
-        $this->assertTrue( $quoter->quoted( '"abc", "c1"' ) );
-
-        $this->assertFalse( $quoter->quoted( '"' ) );
-        $this->assertFalse( $quoter->quoted( '"abc' ) );
-        $this->assertFalse( $quoter->quoted( '"abc".id AS "c1"' ) );
-
-        $quoter = new SQL\MySQL\Quoter();
+        $quoter = new Quoter();
         $this->assertTrue( $quoter->quoted( '``' ) );
         $this->assertTrue( $quoter->quoted( '`abc`' ) );
         $this->assertTrue( $quoter->quoted( ' `abc` ' ) );
@@ -32,7 +21,7 @@ final class QuoterTest extends TestCase {
     }
 
     public function testQuote() : void {
-        $quoter = new SQL\MySQL\Quoter();
+        $quoter = new Quoter();
 
         $this->assertEquals( $quoter->name( '*', false ), '*' );
 

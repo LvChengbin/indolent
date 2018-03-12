@@ -3,7 +3,7 @@
 namespace NextSeason\Test\Model\SQL;
 
 use PHPUnit\Framework\TestCase;
-use NextSeason\Model\SQL\Common\{ Placeholder, Group };
+use NextSeason\Model\SQL\{ Placeholder, Group };
 
 final class GroupTest extends TestCase {
 

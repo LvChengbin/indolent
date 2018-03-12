@@ -3,8 +3,7 @@
 namespace NextSeason\Test\Model\SQL;
 
 use PHPUnit\Framework\TestCase;
-use NextSeason\Model\SQL\MySQL\Quoter;
-use NextSeason\Model\SQL\Common\{ Assembler, Placeholder, Group, Expression };
+use NextSeason\Model\SQL\{ Quoter, Assembler, Placeholder, Group, Expression };
 
 final class AssemblerTest extends TestCase {
     public function testAssembleIn() : void {

@@ -8,10 +8,6 @@ namespace NextSeason\Model\SQL;
  */
 
 class Builder {
-    /**
-     * to generate an unique id for current builder instance for generating the placeholder for prepare syntax.
-     */
-    private $id = null;
 
     private $quoter = null;
 
@@ -71,18 +67,9 @@ class Builder {
     protected $orderby = [];
 
 
-    public function __construct( array $options = null ) {
-
+    public function __construct() {
         $this->quoter = $options[ 'quoter' ] ?? new Quoter();
-
         $this->assembler = new Assembler( $this->quoter );
-
-        $this->id = uniqid();
-        if( !is_null( $options ) ) {
-            $this->prepare = $options[ 'prepare' ] ?? false;
-            $this->tables = $options[ 'table' ] ?? null;
-            $this->structures = $options[ 'structures' ] ?? [];
-        }
     }
 
     public function query() {

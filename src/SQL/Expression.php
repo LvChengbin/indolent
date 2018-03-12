@@ -1,6 +1,6 @@
 <?php
 
-namespace NextSeason\Model\SQL\Common;
+namespace NextSeason\Model\SQL;
 
 class Expression {
     protected $quoter = null;

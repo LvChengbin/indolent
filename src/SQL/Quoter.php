@@ -1,12 +1,12 @@
 <?php
 
-namespace NextSeason\Model\SQL\Common;
+namespace NextSeason\Model\SQL;
 
 class Quoter {
 
-    protected $prefix = '"';
+    protected $prefix = '`';
 
-    protected $suffix = '"';
+    protected $suffix = '`';
 
     protected $placeholder_prefix = 'NEXTSEASON_MODEL_SQL_QUOTER_PLACEHOLDER_';
 

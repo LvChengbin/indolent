@@ -3,9 +3,7 @@
 namespace NextSeason\Test\Model\SQL;
 
 use PHPUnit\Framework\TestCase;
-use NextSeason\Model\SQL\Common\{ Expression };
-use NextSeason\Model\SQL\MySQL\Quoter;
-
+use NextSeason\Model\SQL\{ Quoter, Expression };
 
 final class ExpressionTest extends TestCase {
     public function testAll() : void {
